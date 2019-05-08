@@ -50,9 +50,12 @@ void CPPHighlighter::scanToken() {
         case '>':
         case ':':
         case '#':
+        case '|':
+        case '&':
         case ' ':
         case '\r':
         case '\t':
+        case '\\':
             output += c;
             break;
         case '\n':
