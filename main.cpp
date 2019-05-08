@@ -19,12 +19,14 @@ int main() {
     }
     input.close();
 
-    // std::string cpp_code{"If Boost was built using the boost-cmake project it provides a package configuration"};
+    // std::string cpp_code{"If Boost was built using the boost-cmake project it provides a package configuration file"};
 
     /*
      * Multiline
      * comment
      */
+    int a = 50 + 4000.3;
+    srand(time(nullptr));
 
     std::string html_code = obj.process(cpp_code);
 
