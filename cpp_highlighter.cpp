@@ -1,9 +1,6 @@
 #include "cpp_highlighter.h"
 #include <iostream>
 #include <set>
-#include <regex>
-#include <map>
-#include <boost/tokenizer.hpp>
 #include "colors.h"
 #include "utils.h"
 
@@ -15,41 +12,233 @@ std::string &CPPHighlighter::process(std::string &str)
 {
     std::cout << "CPPHighlight process" << std::endl;
 
-    boost::char_separator<char> sep("", " ,\n*&;:<>(){}[]", boost::keep_empty_tokens);
-    boost::tokenizer<boost::char_separator<char>> tokens(str, sep);
-
-    int lvl = 0;
-    std::vector<std::map<std::string, std::string>> colorsTable;
+    source.swap(str);
+    start = 0;
+    current = 0;
+    line = 1;
+    level = 0;
+    colorsTable.clear();
     colorsTable.emplace_back();
 
-    std::string new_str;
-    for (auto& t : tokens) {
-        if(isKeyword(t)) {
-            new_str += paint(t, color::keyword);
+    scanTokens();
 
-        } else if (isOpenBracket(t)) {
-            ++lvl;
-            colorsTable.emplace_back();
-            new_str += '{';
-
-        } else if (isCloseBracket(t)) {
-            --lvl;
-            colorsTable.pop_back();
-            new_str += '}';
-
-        } else {
-            auto res = colorsTable.at(lvl).emplace(t, randColor());
-            new_str += paint(t, res.first->second);
-//            new_str += t;
-        }
-        std::cout << t << std::endl;
-    }
-    str.swap(new_str);
-
+    str.swap(output);
     return wrapper->process(str);
 }
 
-bool CPPHighlighter::isKeyword(const std::string &str) const
+void CPPHighlighter::scanTokens()
+{
+    while (!isEnd()) {
+        start = current;
+        scanToken();
+    }
+}
+
+void CPPHighlighter::scanToken() {
+    char c = advance();
+    switch (c) {
+        case '(':
+        case ')':
+        case ',':
+        case '.':
+        case '-':
+        case '+':
+        case '*':
+        case '!':
+        case '=':
+        case '<':
+        case '>':
+        case ':':
+        case '#':
+        case ' ':
+        case '\r':
+        case '\t':
+            output += c;
+            break;
+        case '\n':
+            ++line;
+            output += c;
+            break;
+        case ';':
+            output += paint(";", color::keyword);
+            break;
+        case '{':
+            ++level;
+            colorsTable.emplace_back();
+            output += c;
+            break;
+        case '}':
+            --level;
+            colorsTable.pop_back();
+            output += c;
+            break;
+        case '/':
+            if (match('/')) {
+                skipComment();
+            } else if (match('*')) {
+                skipMultilineComment();
+            } else {
+                output += c;
+            }
+            break;
+        case '\'':
+        case '"':
+            string();
+            break;
+
+        default:
+            if (isDigit(c)) {
+                number();
+            } else if (isAlpha(c)) {
+                identifier();
+            } else {
+                std::cout << "Unexpected character" << c << std::endl;
+                break;
+            }
+    }
+}
+
+void CPPHighlighter::string()
+{
+    while ((peek() != '"' && peek() != '\'') && !isEnd()) {
+        if (peek() == '\n') {
+            ++line;
+        }
+        advance();
+    }
+
+    // отсутствует закрывающая '"'
+    if (isEnd()) {
+        std::cout << "Unterminated string" << std::endl;;
+        return;
+    }
+
+    // пропускаем закрывающую '"'
+    advance();
+
+    output += paint(source.substr(start, current - start), color::string);
+}
+
+void CPPHighlighter::number()
+{
+    while (isDigit(peek())) {
+        advance();
+    }
+
+    if (peek() == '.' && isDigit(peekNext())) {
+        // пропускаем '.'
+        advance();
+
+        while (isDigit(peek())) {
+            advance();
+        }
+    }
+
+    output += paint(source.substr(start, current - start), color::number);
+}
+
+void CPPHighlighter::identifier()
+{
+    while (isAlphaNumeric(peek())) {
+        advance();
+    }
+
+    // идентификатор может являться ключевым словом
+    std::string identifier = source.substr(start, current - start);
+    if (isKeyword(identifier)) {
+        output += paint(identifier, color::keyword);
+    } else {
+        auto res = colorsTable.at(level).emplace(identifier, randColor());
+        output += paint(identifier, res.first->second);
+    }
+}
+
+void CPPHighlighter::skipComment()
+{
+    while (peek() != '\n' && !isEnd()) {
+        peek();
+        advance();
+    }
+    output += paint(source.substr(start, current - start), color::comment);
+}
+
+void CPPHighlighter::skipMultilineComment()
+{
+    while ((peek() != '*' || peekNext() != '/') && !isEnd()) {
+        if (peek() == '\n') {
+            ++line;
+        }
+        advance();
+    }
+
+    if (isEnd()) {
+        std::cout << "Unterminated comment" << std::endl;
+    } else {
+        // пропускаем поселовательность '*/'
+        advance();
+        advance();
+    }
+    output += paint(source.substr(start, current - start), color::comment);
+}
+
+bool CPPHighlighter::match(char expected)
+{
+    if (isEnd()) {
+        return false;
+    }
+    if (source.at(current) != expected) {
+        return false;
+    }
+
+    current++;
+    return true;
+}
+
+char CPPHighlighter::peek()
+{
+    if (isEnd()) {
+        return '\0';
+    }
+    return source.at(current);
+}
+
+char CPPHighlighter::peekNext()
+{
+    if (current + 1 >= source.length()) {
+        return '\0';
+    }
+    return source.at(current + 1);
+}
+
+bool CPPHighlighter::isDigit(char c)
+{
+    return c >= '0' && c <= '9';
+}
+
+bool CPPHighlighter::isAlpha(char c)
+{
+    return (c >= 'a' && c <= 'z') ||
+           (c >= 'A' && c <= 'Z') ||
+           c == '_';
+}
+
+bool CPPHighlighter::isAlphaNumeric(char c)
+{
+    return isAlpha(c) || isDigit(c);
+}
+
+bool CPPHighlighter::isEnd()
+{
+    return current >= source.length();
+}
+
+char CPPHighlighter::advance()
+{
+    current++;
+    return source.at(current - 1);
+}
+
+bool CPPHighlighter::isKeyword(std::string &str)
 {
     static const std::set<std::string> keywords {
         "alignas", "alignof", "and", "and_eq", "asm", "auto", "bitand", "bitor", "bool", "break",
@@ -64,16 +253,4 @@ bool CPPHighlighter::isKeyword(const std::string &str) const
     };
 
     return keywords.find(str) != keywords.end();
-}
-
-bool CPPHighlighter::isOpenBracket(const std::string &str) const
-{
-    static const std::string v{"{"};
-    return str == v;
-}
-
-bool CPPHighlighter::isCloseBracket(const std::string &str) const
-{
-    static const std::string v{"}"};
-    return str == v;
 }
