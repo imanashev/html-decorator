@@ -1,5 +1,5 @@
-#include <sstream>
 #include "utils.h"
+#include <sstream>
 
 std::string paint(const std::string &token, const std::string &color)
 {

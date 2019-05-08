@@ -10,5 +10,3 @@ std::string &HTMLWrapper::process(std::string &str)
     str = head + str + tail;
     return str;
 }
-
-
