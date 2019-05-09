@@ -7,7 +7,7 @@
 
 LineAdder::LineAdder(IHTMLDecorator *inner) :
     wrapper(inner)
-{};
+{}
 
 std::string &LineAdder::process(std::string &str)
 {

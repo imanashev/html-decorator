@@ -3,7 +3,7 @@
 
 HTMLEscaper::HTMLEscaper(IHTMLDecorator *inner) :
         wrapper(inner)
-{};
+{}
 
 std::string &HTMLEscaper::process(std::string &str)
 {

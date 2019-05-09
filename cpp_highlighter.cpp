@@ -6,7 +6,7 @@
 
 CPPHighlighter::CPPHighlighter(IHTMLDecorator *inner) :
     wrapper(inner)
-{};
+{}
 
 std::string &CPPHighlighter::process(std::string &str)
 {
@@ -112,7 +112,7 @@ void CPPHighlighter::string()
 
     // отсутствует закрывающая '"'
     if (isEnd()) {
-        std::cout << "Unterminated string" << std::endl;;
+        std::cout << "Unterminated string" << std::endl;
         return;
     }
 
@@ -159,7 +159,6 @@ void CPPHighlighter::identifier()
 void CPPHighlighter::skipComment()
 {
     while (peek() != '\n' && !isEnd()) {
-        peek();
         advance();
     }
     output += paint(source.substr(start, current - start), color::comment);
